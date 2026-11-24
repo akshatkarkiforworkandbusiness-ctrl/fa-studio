@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
+import { serialize } from '@/lib/serialize';
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -17,5 +18,5 @@ export async function GET() {
       fixedAssets: { orderBy: { assetTag: 'asc' } }
     }
   });
-  return NextResponse.json({ companies });
+  return NextResponse.json(serialize({ companies }));
 }

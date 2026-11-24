@@ -20,7 +20,6 @@ import {
   type AccountDef, type BankFeedItem, type JournalEntryRecord
 } from '@/lib/accounting-engine';
 import { MULTI_COMPANY_SCENARIOS } from '@/lib/scenarios';
-import { ACCA_EXAM_SECTION_A, ACCA_EXAM_SECTION_B } from '@/lib/curriculum';
 import { INTERNSHIP_MISSIONS, evaluateMissionSteps, type MissionStep } from '@/lib/internship-missions';
 
 interface CompanyWorkspace {
@@ -308,20 +307,18 @@ export function AppShell() {
   }
 
   async function handleSubmitExam(answersA: Record<string, number>, answersB: Record<string, string>) {
-    try {
-      const res = await fetch('/api/exam/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answersA, answersB })
-      });
-      if (res.ok) return await res.json();
-    } catch { /* fallback local grading */ }
-    let sectionAScore = 0;
-    for (const q of ACCA_EXAM_SECTION_A) if (answersA[q.id] === q.answer) sectionAScore += 2;
-    let sectionBScore = 0;
-    for (const t of ACCA_EXAM_SECTION_B) if (Math.round(Number(answersB[t.id])) === t.expected) sectionBScore += t.marks;
-    const totalScore = sectionAScore + sectionBScore;
-    return { sectionAScore, sectionBScore, totalScore, maxScore: 35, passed: totalScore / 35 >= 0.5 };
+    // Always graded server-side. The previous fallback graded in the browser,
+    // which meant a failed request silently produced a locally-forged score.
+    const res = await fetch('/api/exam/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ answersA, answersB })
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.error || 'Could not submit the exam. Please try again.');
+    }
+    return await res.json();
   }
 
   async function handleLogout() {

@@ -13,6 +13,10 @@ model User {
   email         String            @unique
   name          String
   passwordHash  String
+  // Bumped on every logout. A session cookie carries the version it was issued
+  // at, so incrementing this invalidates all outstanding cookies server-side
+  // instead of leaving them valid until they expire.
+  sessionVersion Int              @default(0)
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
   companies     CompanyScenario[]
@@ -49,8 +53,10 @@ model LedgerAccount {
   category   String          // Asset | Liability | Equity | Income | Expense
   subtype    String          // NCA | NCA_Contra | CA | CL | NCL | EQ | OP_INC | INV_INC | COS | OPEX | FIN
   normalSide String          // Dr | Cr
-  openingDr  Float           @default(0)
-  openingCr  Float           @default(0)
+  // Decimal rather than Float: binary floating point cannot represent most
+  // currency values exactly, so balances drift as amounts are summed.
+  openingDr  Decimal         @default(0)
+  openingCr  Decimal         @default(0)
 
   @@unique([companyId, code])
 }
@@ -72,8 +78,8 @@ model JournalLine {
   journalEntryId String
   journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
   accountCode    String
-  debit          Float        @default(0)
-  credit         Float        @default(0)
+  debit          Decimal        @default(0)
+  credit         Decimal        @default(0)
 }
 
 model InvoiceOrBill {
@@ -85,10 +91,10 @@ model InvoiceOrBill {
   counterparty  String
   issueDate     String
   dueDate       String
-  netAmount     Float
+  netAmount     Decimal
   taxRate       Float           @default(0)
-  taxAmount     Float           @default(0)
-  totalAmount   Float
+  taxAmount     Decimal         @default(0)
+  totalAmount   Decimal
   accountCode   String          // Revenue or Expense/Inventory account code
   status        String          @default("OPEN") // OPEN | PAID
   createdAt     DateTime        @default(now())
@@ -101,7 +107,7 @@ model BankTransaction {
   date           String
   description    String
   reference      String
-  amount         Float           // Positive = cash inflow, Negative = cash outflow
+  amount         Decimal         // Positive = cash inflow, Negative = cash outflow
   status         String          @default("UNMATCHED") // UNMATCHED | RECONCILED
   matchedDocId   String?
   matchedAccount String?
@@ -118,12 +124,12 @@ model FixedAsset {
   costAccount    String
   accumAccount   String
   purchaseDate   String
-  cost           Float
-  residualValue  Float           @default(0)
+  cost           Decimal
+  residualValue  Decimal         @default(0)
   usefulLifeYrs  Int
   method         String          // "STRAIGHT_LINE" | "REDUCING_BALANCE"
   ratePercent    Float           // Annual % rate
-  accumulatedDep Float           @default(0)
+  accumulatedDep Decimal         @default(0)
   lastDepYear    Int?
 }
 

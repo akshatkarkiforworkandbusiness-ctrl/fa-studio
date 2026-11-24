@@ -1,21 +1,81 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ExternalLink, CheckCircle2, Award } from 'lucide-react';
-import { IFRS_STANDARDS, ACCA_EXAM_SECTION_A, ACCA_EXAM_SECTION_B } from '@/lib/curriculum';
+import React, { useEffect, useState } from 'react';
+import { ExternalLink, CheckCircle2, Award, Loader2 } from 'lucide-react';
+import { IFRS_STANDARDS } from '@/lib/curriculum';
+
+interface SectionAQuestion {
+  id: string;
+  topic: string;
+  q: string;
+  options: string[];
+}
+
+interface SectionBTask {
+  id: string;
+  label: string;
+  marks: number;
+}
+
+interface ExamPaper {
+  sectionA: SectionAQuestion[];
+  sectionB: SectionBTask[];
+  maxScore: number;
+  passMark: number;
+}
+
+interface ExamSolution {
+  sectionA: Array<{ id: string; answer: number; explanation: string }>;
+  sectionB: Array<{ id: string; expected: number; working: string }>;
+}
+
+export interface ExamResult {
+  sectionAScore: number;
+  sectionBScore: number;
+  totalScore: number;
+  maxScore: number;
+  passed: boolean;
+  solutions?: ExamSolution;
+}
 
 interface StudyExamViewProps {
   mode: 'study' | 'exam';
   completedTopics: Record<string, boolean>;
   onToggleTopic: (code: string, completed: boolean) => Promise<void>;
-  onSubmitExam: (answersA: Record<string, number>, answersB: Record<string, string>) => Promise<{ sectionAScore: number; sectionBScore: number; totalScore: number; maxScore: number; passed: boolean }>;
+  onSubmitExam: (
+    answersA: Record<string, number>,
+    answersB: Record<string, string>
+  ) => Promise<ExamResult>;
 }
 
 export function StudyExamView({ mode, completedTopics, onToggleTopic, onSubmitExam }: StudyExamViewProps) {
   const [answersA, setAnswersA] = useState<Record<string, number>>({});
   const [answersB, setAnswersB] = useState<Record<string, string>>({});
-  const [result, setResult] = useState<{ sectionAScore: number; sectionBScore: number; totalScore: number; maxScore: number; passed: boolean } | null>(null);
+  const [result, setResult] = useState<ExamResult | null>(null);
   const [examSec, setExamSec] = useState<'A' | 'B'>('A');
+  const [paper, setPaper] = useState<ExamPaper | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  // The question bank lives server-side; only the stripped copy (no answers,
+  // no worked solutions) is fetched here.
+  useEffect(() => {
+    if (mode !== 'exam') return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/exam/questions', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) as ExamPaper;
+        if (!cancelled) setPaper(data);
+      } catch {
+        if (!cancelled) setLoadError('Could not load the exam paper. Check the server is running, then reload.');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mode]);
 
   if (mode === 'study') {
     return (
@@ -78,9 +138,18 @@ export function StudyExamView({ mode, completedTopics, onToggleTopic, onSubmitEx
   }
 
   async function grade() {
-    const res = await onSubmitExam(answersA, answersB);
-    setResult(res);
+    setSubmitting(true);
+    try {
+      const res = await onSubmitExam(answersA, answersB);
+      setResult(res);
+    } finally {
+      setSubmitting(false);
+    }
   }
+
+  const maxScore = paper?.maxScore ?? 35;
+  const solutionA = new Map((result?.solutions?.sectionA ?? []).map(s => [s.id, s]));
+  const solutionB = new Map((result?.solutions?.sectionB ?? []).map(s => [s.id, s]));
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -94,14 +163,31 @@ export function StudyExamView({ mode, completedTopics, onToggleTopic, onSubmitEx
             <button type="button" onClick={() => setExamSec('A')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${examSec === 'A' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}`}>Section A (20m)</button>
             <button type="button" onClick={() => setExamSec('B')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${examSec === 'B' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}`}>Section B MTQ (15m)</button>
           </div>
-          <button type="button" onClick={grade} className="px-4 py-2 rounded-xl bg-brand-700 hover:bg-brand-800 text-white text-xs font-semibold shadow-xs">
-            Submit &amp; Grade
+          <button
+            type="button"
+            onClick={grade}
+            disabled={!paper || submitting}
+            className="px-4 py-2 rounded-xl bg-brand-700 hover:bg-brand-800 text-white text-xs font-semibold shadow-xs disabled:opacity-60"
+          >
+            {submitting ? 'Grading…' : 'Submit & Grade'}
           </button>
         </div>
       </div>
 
+      {loadError && (
+        <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-sm text-rose-800">
+          {loadError}
+        </div>
+      )}
+
+      {!paper && !loadError && (
+        <div className="flex items-center gap-2 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-600" aria-live="polite">
+          <Loader2 className="w-4 h-4 animate-spin" /> Loading exam paper…
+        </div>
+      )}
+
       {result && (
-        <div className={`p-5 rounded-2xl border flex items-center justify-between ${result.passed ? 'bg-emerald-50 border-emerald-300 text-emerald-950' : 'bg-rose-50 border-rose-300 text-rose-950'}`}>
+        <div role="status" className={`p-5 rounded-2xl border flex flex-wrap items-center justify-between gap-3 ${result.passed ? 'bg-emerald-50 border-emerald-300 text-emerald-950' : 'bg-rose-50 border-rose-300 text-rose-950'}`}>
           <div className="flex items-center gap-3">
             <Award className="w-6 h-6" />
             <div>
@@ -113,9 +199,11 @@ export function StudyExamView({ mode, completedTopics, onToggleTopic, onSubmitEx
         </div>
       )}
 
-      {examSec === 'A' ? (
+      {paper && examSec === 'A' && (
         <div className="space-y-4">
-          {ACCA_EXAM_SECTION_A.map((q, idx) => (
+          {paper.sectionA.map((q, idx) => {
+            const solution = solutionA.get(q.id);
+            return (
             <div key={q.id} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3">
               <div className="text-xs font-bold text-brand-700">Q{idx + 1} · {q.topic} (2 Marks)</div>
               <p className="text-sm font-medium text-slate-900">{q.q}</p>
@@ -123,8 +211,8 @@ export function StudyExamView({ mode, completedTopics, onToggleTopic, onSubmitEx
                 {q.options.map((opt, oIdx) => {
                   const chosen = answersA[q.id] === oIdx;
                   let cls = chosen ? 'border-brand-700 bg-brand-50 text-brand-900 font-semibold' : 'border-slate-200 hover:border-brand-500';
-                  if (result) {
-                    if (oIdx === q.answer) cls = 'border-emerald-600 bg-emerald-50 text-emerald-900 font-semibold';
+                  if (result && solution) {
+                    if (oIdx === solution.answer) cls = 'border-emerald-600 bg-emerald-50 text-emerald-900 font-semibold';
                     else if (chosen) cls = 'border-rose-500 bg-rose-50 text-rose-900';
                   }
                   return (
@@ -134,32 +222,43 @@ export function StudyExamView({ mode, completedTopics, onToggleTopic, onSubmitEx
                   );
                 })}
               </div>
-              {result && <div className="p-2.5 rounded-xl bg-slate-50 text-xs text-slate-700"><strong>Working:</strong> {q.explanation}</div>}
+              {result && solution && (
+                <div className="p-2.5 rounded-xl bg-slate-50 text-xs text-slate-700"><strong>Working:</strong> {solution.explanation}</div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
-      ) : (
+      )}
+
+      {paper && examSec === 'B' && (
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
           <h3 className="text-base font-bold text-slate-900">Meridian Group — Consolidated SOFP (15 Marks)</h3>
           <p className="text-xs text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-200 leading-relaxed">
             On 1 Jan 2025, Apex Co acquired 80% of Nova Co for $420,000. At acquisition, Nova Co had Share Capital $200,000, Retained Earnings $150,000, Land FV uplift $50,000, and NCI FV $95,000. During 2025, Nova earned $80,000 profit (Apex individual closing RE $310,000). Apex sold goods to Nova for $40,000 at 25% markup on cost (50% unsold at year-end). Year-end Receivables: Apex $90,000, Nova $60,000 (includes $15,000 intra-group).
           </p>
           <div className="space-y-3">
-            {ACCA_EXAM_SECTION_B.map(t => (
-              <div key={t.id} className="p-4 rounded-xl border border-slate-200 space-y-2">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <label className="text-xs font-semibold text-slate-900">{t.label}</label>
-                  <input
-                    type="number"
-                    value={answersB[t.id] || ''}
-                    onChange={e => setAnswersB(p => ({ ...p, [t.id]: e.target.value }))}
-                    placeholder="Amount ($)"
-                    className="w-36 px-3 py-1.5 rounded-xl border border-slate-300 text-xs text-right tabular-nums"
-                  />
+            {paper.sectionB.map(t => {
+              const solution = solutionB.get(t.id);
+              return (
+                <div key={t.id} className="p-4 rounded-xl border border-slate-200 space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <label htmlFor={`mtq-${t.id}`} className="text-xs font-semibold text-slate-900">{t.label}</label>
+                    <input
+                      id={`mtq-${t.id}`}
+                      type="number"
+                      value={answersB[t.id] || ''}
+                      onChange={e => setAnswersB(p => ({ ...p, [t.id]: e.target.value }))}
+                      placeholder="Amount ($)"
+                      className="w-36 px-3 py-1.5 rounded-xl border border-slate-300 text-xs text-right tabular-nums"
+                    />
+                  </div>
+                  {result && solution && (
+                    <div className="text-xs text-slate-700"><strong>Expected ${solution.expected.toLocaleString()}:</strong> {solution.working}</div>
+                  )}
                 </div>
-                {result && <div className="text-xs text-slate-700"><strong>Expected ${t.expected.toLocaleString()}:</strong> {t.working}</div>}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

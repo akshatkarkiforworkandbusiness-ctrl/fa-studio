@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
+import { serialize } from '@/lib/serialize';
 
 export async function GET(_req: Request, context: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -18,5 +19,5 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
     }
   });
   if (!company) return NextResponse.json({ error: 'Company not found' }, { status: 404 });
-  return NextResponse.json({ company });
+  return NextResponse.json(serialize({ company }));
 }
