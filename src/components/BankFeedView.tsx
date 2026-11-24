@@ -72,7 +72,7 @@ export function BankFeedView({ bankTransactions, invoices, accounts, onReconcile
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-semibold text-slate-400">{tx.date}</span>
+                      <span className="text-[11px] font-semibold text-slate-500">{tx.date}</span>
                       <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">{tx.reference}</span>
                     </div>
                     <p className="text-sm font-bold text-slate-900 mt-0.5">{tx.description}</p>
@@ -146,7 +146,7 @@ export function BankFeedView({ bankTransactions, invoices, accounts, onReconcile
               <div key={tx.id} className="px-5 py-3 flex items-center justify-between gap-4">
                 <div>
                   <span className="font-semibold text-slate-900">{tx.description}</span>
-                  <span className="ml-2 text-slate-400">{tx.date} · Ref {tx.reference}</span>
+                  <span className="ml-2 text-slate-500">{tx.date} · Ref {tx.reference}</span>
                 </div>
                 <div className="flex items-center gap-3 tabular-nums">
                   <span className="font-bold text-slate-900">{tx.amount > 0 ? '+' : '−'}{fmt(tx.amount)}</span>

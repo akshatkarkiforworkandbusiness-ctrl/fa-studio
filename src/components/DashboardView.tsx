@@ -122,12 +122,12 @@ export function DashboardView({
             <div className="text-[11px] font-semibold uppercase text-slate-500">Assets</div>
             <div className="text-lg font-bold text-slate-900 tabular-nums mt-0.5">{fmt(statements.totalAssets)}</div>
           </div>
-          <div className="text-xl font-bold text-slate-400">=</div>
+          <div className="text-xl font-bold text-slate-500">=</div>
           <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
             <div className="text-[11px] font-semibold uppercase text-slate-500">Liabilities</div>
             <div className="text-lg font-bold text-slate-900 tabular-nums mt-0.5">{fmt(statements.totalLiabilities)}</div>
           </div>
-          <div className="text-xl font-bold text-slate-400">+</div>
+          <div className="text-xl font-bold text-slate-500">+</div>
           <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
             <div className="text-[11px] font-semibold uppercase text-slate-500">Equity</div>
             <div className="text-lg font-bold text-slate-900 tabular-nums mt-0.5">{fmt(statements.totalEquity)}</div>

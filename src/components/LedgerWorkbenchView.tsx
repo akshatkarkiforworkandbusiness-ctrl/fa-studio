@@ -137,7 +137,7 @@ export function LedgerWorkbenchView({ accounts, ledger, journals, onPostJournal,
             </div>
             <div className="divide-y divide-slate-100 text-xs">
               {journals.length === 0 ? (
-                <div className="p-6 text-center text-slate-400">No entries posted yet in this scenario.</div>
+                <div className="p-6 text-center text-slate-500">No entries posted yet in this scenario.</div>
               ) : (
                 journals.map(j => (
                   <div key={j.id} className="px-5 py-3 flex flex-wrap items-center justify-between gap-3">
@@ -206,7 +206,7 @@ export function LedgerWorkbenchView({ accounts, ledger, journals, onPostJournal,
             <tbody className="divide-y divide-slate-100">
               {tbAccounts.map(a => (
                 <tr key={a.code} className="hover:bg-slate-50">
-                  <td className="py-2.5 px-4 text-slate-400 font-medium">{a.code}</td>
+                  <td className="py-2.5 px-4 text-slate-500 font-medium">{a.code}</td>
                   <td className="py-2.5 px-4 font-medium text-slate-800">{a.name}</td>
                   <td className="py-2.5 px-4 text-right">{a.closingDr > 0 ? fmt(a.closingDr) : ''}</td>
                   <td className="py-2.5 px-4 text-right">{a.closingCr > 0 ? fmt(a.closingCr) : ''}</td>

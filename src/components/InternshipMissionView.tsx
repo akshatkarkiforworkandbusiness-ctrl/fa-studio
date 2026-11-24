@@ -198,7 +198,7 @@ export function InternshipMissionView({
                   </div>
                   <div className="space-y-1.5">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Step {step.order}</span>
+                      <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Step {step.order}</span>
                       <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-800 border border-brand-200">
                         {step.accaChapter}
                       </span>

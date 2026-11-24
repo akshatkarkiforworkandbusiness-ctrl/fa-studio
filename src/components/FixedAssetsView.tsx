@@ -69,11 +69,11 @@ export function FixedAssetsView({ assets, onRunDepreciation }: FixedAssetsViewPr
                 <h3 className="text-base font-bold text-slate-900">{a.name}</h3>
                 <div className="grid grid-cols-3 gap-2 pt-2 text-xs tabular-nums">
                   <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-                    <div className="text-[10px] uppercase font-semibold text-slate-400">Cost</div>
+                    <div className="text-[10px] uppercase font-semibold text-slate-500">Cost</div>
                     <div className="font-bold text-slate-900 mt-0.5">{fmt(a.cost)}</div>
                   </div>
                   <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-                    <div className="text-[10px] uppercase font-semibold text-slate-400">Accum. Dep</div>
+                    <div className="text-[10px] uppercase font-semibold text-slate-500">Accum. Dep</div>
                     <div className="font-bold text-rose-700 mt-0.5">{fmt(a.accumulatedDep)}</div>
                   </div>
                   <div className="p-2.5 rounded-xl bg-brand-50/70 border border-brand-200">

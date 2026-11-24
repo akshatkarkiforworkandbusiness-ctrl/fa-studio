@@ -147,7 +147,6 @@ export function StudyExamView({ mode, completedTopics, onToggleTopic, onSubmitEx
     }
   }
 
-  const maxScore = paper?.maxScore ?? 35;
   const solutionA = new Map((result?.solutions?.sectionA ?? []).map(s => [s.id, s]));
   const solutionB = new Map((result?.solutions?.sectionB ?? []).map(s => [s.id, s]));
 

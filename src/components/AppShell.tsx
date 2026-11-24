@@ -343,18 +343,36 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
+      {/* Keyboard users jump straight past the nav chrome. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-slate-900 focus:text-white focus:rounded-lg focus:text-sm focus:font-semibold"
+      >
+        Skip to main content
+      </a>
       <header className="sticky top-0 z-30 h-16 bg-white border-b border-slate-200 px-4 lg:px-6 flex items-center justify-between shadow-xs print:hidden">
         <div className="flex items-center gap-3">
-          <button type="button" onClick={() => setMobileOpen(!mobileOpen)} className="lg:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100">
-            <Menu className="w-5 h-5" />
+          <button
+            type="button"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={mobileOpen}
+            aria-controls="primary-nav"
+            className="lg:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100"
+          >
+            <Menu className="w-5 h-5" aria-hidden="true" />
           </button>
           <BrandLogo />
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-1.5 bg-slate-100 rounded-xl px-2.5 py-1.5 border border-slate-200">
-            <Building2 className="w-3.5 h-3.5 text-brand-700 shrink-0" />
+            <Building2 className="w-3.5 h-3.5 text-brand-700 shrink-0" aria-hidden="true" />
+            <label htmlFor="company-switcher" className="sr-only">
+              Switch active company
+            </label>
             <select
+              id="company-switcher"
               value={activeCompany.id}
               onChange={e => setActiveCompanyId(e.target.value)}
               className="bg-transparent text-xs font-semibold text-slate-800 focus:outline-none pr-1"
@@ -381,8 +399,12 @@ export function AppShell() {
       </header>
 
       <div className="flex flex-1 min-h-0">
-        <aside className={`${mobileOpen ? 'fixed inset-y-0 left-0 z-40 pt-16' : 'hidden'} lg:flex lg:static w-64 bg-white border-r border-slate-200 flex-col justify-between py-4 print:hidden`}>
-          <nav className="space-y-0.5 px-2">
+        <aside
+          id="primary-nav"
+          aria-label="Primary"
+          className={`${mobileOpen ? 'fixed inset-y-0 left-0 z-40 pt-16' : 'hidden'} lg:flex lg:static w-64 bg-white border-r border-slate-200 flex-col justify-between py-4 print:hidden`}
+        >
+          <nav className="space-y-0.5 px-2" aria-label="Sections">
             {navItems.map(item => {
               const Icon = item.icon;
               const active = activeTab === item.id;
@@ -391,10 +413,11 @@ export function AppShell() {
                   key={item.id}
                   type="button"
                   onClick={() => navigateTab(item.id)}
+                  aria-current={active ? 'page' : undefined}
                   className={`w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl text-sm transition-colors ${active ? 'bg-brand-50 text-brand-800 font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}
                 >
                   <span className="flex items-center gap-3">
-                    <Icon className="w-4 h-4 shrink-0" />
+                    <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
                     <span>{item.label}</span>
                   </span>
                   {item.badge && (
@@ -415,9 +438,13 @@ export function AppShell() {
           </div>
         </aside>
 
-        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+        <main id="main-content" tabIndex={-1} className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
           {toast && (
-            <div className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white text-xs font-medium px-4 py-3 rounded-xl shadow-lg print:hidden">
+            <div
+              role="status"
+              aria-live="polite"
+              className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white text-xs font-medium px-4 py-3 rounded-xl shadow-lg print:hidden"
+            >
               {toast}
             </div>
           )}
