@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Switch provider to "postgresql" for Vercel Postgres / Neon / Supabase production deployments
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String            @id @default(cuid())
+  email         String            @unique
+  name          String
+  passwordHash  String
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  companies     CompanyScenario[]
+  examAttempts  ExamAttempt[]
+  studyProgress StudyProgress[]
+}
+
+model CompanyScenario {
+  id               String            @id @default(cuid())
+  userId           String
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug             String
+  name             String
+  industry         String            // "Retail" | "SaaS" | "Manufacturing"
+  currency         String            @default("USD")
+  fiscalYearEnd    String            @default("2025-12-31")
+  description      String
+  createdAt        DateTime          @default(now())
+  accounts         LedgerAccount[]
+  journals         JournalEntry[]
+  invoices         InvoiceOrBill[]
+  bankTransactions BankTransaction[]
+  fixedAssets      FixedAsset[]
+
+  @@unique([userId, slug])
+}
+
+model LedgerAccount {
+  id         String          @id @default(cuid())
+  companyId  String
+  company    CompanyScenario @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  code       String
+  name       String
+  category   String          // Asset | Liability | Equity | Income | Expense
+  subtype    String          // NCA | NCA_Contra | CA | CL | NCL | EQ | OP_INC | INV_INC | COS | OPEX | FIN
+  normalSide String          // Dr | Cr
+  openingDr  Float           @default(0)
+  openingCr  Float           @default(0)
+
+  @@unique([companyId, code])
+}
+
+model JournalEntry {
+  id          String          @id @default(cuid())
+  companyId   String
+  company     CompanyScenario @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reference   String
+  date        String
+  description String
+  sourceType  String          @default("MANUAL") // MANUAL | INVOICE | BILL | BANK_FEED | DEPRECIATION | CLOSING
+  createdAt   DateTime        @default(now())
+  lines       JournalLine[]
+}
+
+model JournalLine {
+  id             String       @id @default(cuid())
+  journalEntryId String
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  accountCode    String
+  debit          Float        @default(0)
+  credit         Float        @default(0)
+}
+
+model InvoiceOrBill {
+  id            String          @id @default(cuid())
+  companyId     String
+  company       CompanyScenario @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type          String          // "INVOICE" (AR) | "BILL" (AP)
+  number        String
+  counterparty  String
+  issueDate     String
+  dueDate       String
+  netAmount     Float
+  taxRate       Float           @default(0)
+  taxAmount     Float           @default(0)
+  totalAmount   Float
+  accountCode   String          // Revenue or Expense/Inventory account code
+  status        String          @default("OPEN") // OPEN | PAID
+  createdAt     DateTime        @default(now())
+}
+
+model BankTransaction {
+  id             String          @id @default(cuid())
+  companyId      String
+  company        CompanyScenario @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  date           String
+  description    String
+  reference      String
+  amount         Float           // Positive = cash inflow, Negative = cash outflow
+  status         String          @default("UNMATCHED") // UNMATCHED | RECONCILED
+  matchedDocId   String?
+  matchedAccount String?
+  createdAt      DateTime        @default(now())
+}
+
+model FixedAsset {
+  id             String          @id @default(cuid())
+  companyId      String
+  company        CompanyScenario @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assetTag       String
+  name           String
+  assetClass     String
+  costAccount    String
+  accumAccount   String
+  purchaseDate   String
+  cost           Float
+  residualValue  Float           @default(0)
+  usefulLifeYrs  Int
+  method         String          // "STRAIGHT_LINE" | "REDUCING_BALANCE"
+  ratePercent    Float           // Annual % rate
+  accumulatedDep Float           @default(0)
+  lastDepYear    Int?
+}
+
+model ExamAttempt {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sectionAScore Int
+  sectionBScore Int
+  totalScore   Int
+  maxScore     Int      @default(35)
+  passed       Boolean
+  answersJson  String
+  createdAt    DateTime @default(now())
+}
+
+model StudyProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topicCode   String
+  completed   Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, topicCode])
+}
