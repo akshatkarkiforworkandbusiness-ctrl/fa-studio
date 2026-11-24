@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# One run per ref at a time; a newer push cancels the stale one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Lint, typecheck, unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # tsc type-checks against the generated Prisma client, so generate first.
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npm test
+
+  e2e:
+    name: Build + live API tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    # Fresh Postgres per run — matches the production provider, so these tests
+    # exercise the same Decimal and constraint behaviour that ships.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fa_studio
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # `next build` and `next start` run with NODE_ENV=production, where
+      # getSecret() refuses a missing or placeholder AUTH_SECRET. This is a
+      # throwaway CI-only key, never used to sign anything that leaves the runner.
+      AUTH_SECRET: ci-only-0123456789abcdef0123456789abcdef0123456789abcdef
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/fa_studio
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Create schema
+        run: npx prisma db push --skip-generate
+
+      - name: Build
+        run: npm run build
+
+      - name: Start production server
+        run: |
+          npm run start > server.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3000/ > /dev/null; then
+              echo "server ready after ${i} attempt(s)"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "server never became ready"
+          cat server.log
+          exit 1
+
+      - name: API contract test (smoke.mjs)
+        run: node scripts/smoke.mjs
+
+      # The audit-trail guarantee: journals are reversed, never deleted.
+      - name: Audit-trail test (reversal-test.mjs)
+        run: node scripts/reversal-test.mjs
+
+      - name: Server log on failure
+        if: failure()
+        run: cat server.log || true
