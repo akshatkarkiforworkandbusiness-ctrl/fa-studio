@@ -34,11 +34,12 @@ the [ACCA Study Hub](https://www.accaglobal.com/gb/en/student/your-study-options
 ```bash
 npm install
 cp .env.example .env
-
-# generate a real secret — production refuses to start without one
+#    1. paste a Postgres URL into DATABASE_URL — a free Neon database (the same
+#       one you later hand to Vercel) or Postgres you run yourself
+#    2. append a real AUTH_SECRET — production refuses to start without one
 node -e "console.log('AUTH_SECRET=\"' + require('crypto').randomBytes(32).toString('hex') + '\"')" >> .env
 
-npm run db:push     # create the SQLite schema
+npm run db:push     # create the schema
 npm run db:seed     # demo student + 3 companies
 npm test            # accounting engine unit tests
 npm run dev         # http://localhost:3000
@@ -75,7 +76,7 @@ src/
     account-codes.ts         control-account registry (no scattered magic numbers)
     rate-limit.ts            fixed-window limiter
     serialize.ts             Decimal → number at the API boundary
-prisma/schema.prisma         SQLite (switch provider to postgresql for production)
+prisma/schema.prisma         PostgreSQL in dev and production
 ```
 
 **Money is stored as `Decimal`** and converted to plain numbers only at the API boundary, so
@@ -117,12 +118,54 @@ The sandbox refuses to produce wrong numbers rather than silently accepting them
 - **Security headers** — `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, HSTS,
   `Permissions-Policy`.
 
-## Production deployment (Vercel + PostgreSQL)
+## Continuous integration
 
-1. Change `provider = "sqlite"` to `provider = "postgresql"` in `prisma/schema.prisma`.
-2. Set `DATABASE_URL` and a 64-character `AUTH_SECRET`, plus `NEXT_PUBLIC_SITE_URL` for
-   `metadataBase`.
-3. `npx prisma db push && npm run build`.
+`.github/workflows/ci.yml` runs two parallel jobs on every push to `main` and
+on every pull request:
+
+| Job | Steps |
+| --- | --- |
+| **quality** | `npm ci` → `prisma generate` → `lint` → `tsc --noEmit` → `npm test` |
+| **e2e** | `npm ci` → `prisma db push` → `next build` → start the production server → `smoke.mjs` (10 contract checks) → `reversal-test.mjs` (22 audit-trail checks) |
+
+The e2e job runs against a `postgres:16-alpine` service container — the same
+provider as production, so these tests exercise the real `Decimal` and
+constraint behaviour rather than a SQLite stand-in.
+
+## Production deployment (Vercel + Neon)
+
+Postgres is used in **every** environment, local development included. Vercel's
+filesystem is read-only and ephemeral: a SQLite file there is discarded on each
+cold start, so every account and journal entry would silently vanish.
+
+1. **Create a database.** A free [Neon](https://neon.tech) project — copy the
+   *pooled* connection string (it ends in `?sslmode=require`). Use the same URL
+   locally, and dev and production behave identically.
+
+2. **Create the tables once**, against that URL:
+
+   ```bash
+   DATABASE_URL="<neon-pooled-url>" npx prisma db push
+   ```
+
+3. **Import the repo into Vercel** and set these environment variables:
+
+   | Variable | Value |
+   | --- | --- |
+   | `DATABASE_URL` | the Neon pooled connection string |
+   | `AUTH_SECRET` | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+   | `NEXT_PUBLIC_SITE_URL` | `https://<your-app>.vercel.app` (used for `metadataBase`) |
+
+4. **Deploy.** Vercel detects Next.js and runs `prisma generate && next build`
+   from `package.json`. There is deliberately no `vercel.json` — no
+   configuration is actually required, and adding one would only duplicate what
+   Vercel already infers.
+
+> **Serverless caveat:** the rate limiter in `src/lib/rate-limit.ts` is
+> in-memory, so on Vercel its counters reset on every cold start and are not
+> shared between instances. It still throttles a burst inside one instance, but
+> it is not a global guarantee — swap in Upstash or Redis if you need a hard
+> limit.
 
 ## Brand assets
 
