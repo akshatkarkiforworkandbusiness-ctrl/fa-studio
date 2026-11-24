@@ -355,14 +355,18 @@ export function evaluateMissionSteps(snapshot: LiveCompanySnapshot): Record<stri
   const mission = INTERNSHIP_MISSIONS[snapshot.slug];
   if (!mission) return {};
 
+  // Entries cancelled by a contra posting must not still count as work done:
+  // posting an invoice and then reversing it should not satisfy step 2.
+  const live = snapshot.journals.filter(j => !j.reversedBy);
+
   const allBankReconciled =
     snapshot.bankTransactions.length > 0 &&
     snapshot.bankTransactions.every(tx => tx.status === 'RECONCILED');
-  const hasNewInvoiceOrBill = snapshot.journals.some(j => j.sourceType === 'INVOICE' || j.sourceType === 'BILL');
+  const hasNewInvoiceOrBill = live.some(j => j.sourceType === 'INVOICE' || j.sourceType === 'BILL');
   const hasDepreciationRun =
     snapshot.fixedAssets.some(a => a.lastDepYear === 2025) ||
-    snapshot.journals.some(j => j.sourceType === 'DEPRECIATION');
-  const hasManualAdjustment = snapshot.journals.some(j => j.sourceType === 'MANUAL');
+    live.some(j => j.sourceType === 'DEPRECIATION');
+  const hasManualAdjustment = live.some(j => j.sourceType === 'MANUAL');
   const isBalanced = snapshot.statements.isBalanced;
 
   const status: Record<string, boolean> = {};

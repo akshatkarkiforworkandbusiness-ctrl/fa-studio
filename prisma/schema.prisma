@@ -68,7 +68,14 @@ model JournalEntry {
   reference   String
   date        String
   description String
-  sourceType  String          @default("MANUAL") // MANUAL | INVOICE | BILL | BANK_FEED | DEPRECIATION | CLOSING
+  sourceType  String          @default("MANUAL") // MANUAL | INVOICE | BILL | BANK_FEED | DEPRECIATION | CLOSING | REVERSAL
+  // Reversal linkage. Entries are never deleted — an accounting audit trail
+  // must not have gaps — so cancelling one posts a contra entry instead and
+  // records the relationship here in both directions.
+  //   original.reversedBy = the contra entry that cancels it
+  //   contra.reversalOf   = the original entry it cancels
+  reversedBy  String?
+  reversalOf  String?
   createdAt   DateTime        @default(now())
   lines       JournalLine[]
 }

@@ -20,6 +20,7 @@ import {
   type AccountDef, type BankFeedItem, type JournalEntryRecord
 } from '@/lib/accounting-engine';
 import { MULTI_COMPANY_SCENARIOS } from '@/lib/scenarios';
+import { ACCT } from '@/lib/account-codes';
 import { INTERNSHIP_MISSIONS, evaluateMissionSteps, type MissionStep } from '@/lib/internship-missions';
 
 interface CompanyWorkspace {
@@ -257,13 +258,86 @@ export function AppShell() {
   }
 
   async function handleReverseJournal(journalId: string) {
+    const original = activeCompany.journals.find(j => j.id === journalId);
+    if (!original) return;
+
     if (user) {
-      await fetch(`/api/companies/${activeCompany.id}/journals?journalId=${journalId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/companies/${activeCompany.id}/journals/reverse`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ journalId })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        notify(data?.error || 'Could not reverse that entry.');
+        return;
+      }
       await syncFromServer();
-    } else {
-      setCompanies(prev => prev.map(c => c.id === activeCompany.id ? { ...c, journals: c.journals.filter(j => j.id !== journalId) } : c));
+      notify('Reversed — contra entry posted to the General Ledger.');
+      return;
     }
-    notify('Journal entry reversed.');
+
+    // Guest mode mirrors the server: keep the original, add a contra entry,
+    // and roll back whatever the original did to its linked record.
+    const reversalId = `guest-rev-${journalId}`;
+    const reversal = {
+      id: reversalId,
+      reference: `REV-${original.reference}`.slice(0, 40),
+      date: original.date,
+      description: `Reversal of ${original.reference} — ${original.description}`,
+      sourceType: 'REVERSAL',
+      reversalOf: original.id,
+      reversedBy: null as string | null,
+      lines: original.lines.map(l => ({
+        accountCode: l.accountCode,
+        debit: l.credit,
+        credit: l.debit
+      }))
+    };
+
+    const charge = original.lines
+      .filter(l => l.accountCode === ACCT.DEPRECIATION_EXPENSE)
+      .reduce((sum, l) => sum + Number(l.debit || 0), 0);
+
+    setCompanies(prev =>
+      prev.map(c => {
+        if (c.id !== activeCompany.id) return c;
+        return {
+          ...c,
+          journals: [
+            { ...original, reversedBy: reversalId },
+            reversal,
+            ...c.journals.filter(j => j.id !== original.id)
+          ],
+          invoices: c.invoices.map(inv =>
+            (original.sourceType === 'INVOICE' || original.sourceType === 'BILL') &&
+            inv.number === original.reference &&
+            inv.status === 'PAID'
+              ? { ...inv, status: 'OPEN' as const }
+              : inv
+          ),
+          bankTransactions: c.bankTransactions.map(tx =>
+            original.sourceType === 'BANK_FEED' &&
+            tx.reference === original.reference &&
+            tx.status === 'RECONCILED'
+              ? { ...tx, status: 'UNMATCHED' as const, matchedDocId: null, matchedAccount: null }
+              : tx
+          ),
+          fixedAssets: c.fixedAssets.map(a =>
+            original.sourceType === 'DEPRECIATION' &&
+            original.reference === `DEP-${a.assetTag}`
+              ? {
+                  ...a,
+                  accumulatedDep: Math.max(0, a.accumulatedDep - charge),
+                  lastDepYear:
+                    a.lastDepYear === Number(original.date.slice(0, 4)) ? null : a.lastDepYear
+                }
+              : a
+          )
+        };
+      })
+    );
+    notify('Reversed — contra entry posted to the General Ledger.');
   }
 
   async function handleApplyBackOnTrack(step: MissionStep) {

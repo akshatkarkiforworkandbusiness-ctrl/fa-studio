@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { Plus, RotateCcw, CheckCircle2 } from 'lucide-react';
 import { validateJournalBalance, type AccountDef, type ComputedAccount, type JournalEntryRecord } from '@/lib/accounting-engine';
 
 interface LedgerWorkbenchViewProps {
@@ -139,24 +139,60 @@ export function LedgerWorkbenchView({ accounts, ledger, journals, onPostJournal,
               {journals.length === 0 ? (
                 <div className="p-6 text-center text-slate-500">No entries posted yet in this scenario.</div>
               ) : (
-                journals.map(j => (
-                  <div key={j.id} className="px-5 py-3 flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <span className="font-bold text-slate-900">{j.reference}</span>
-                      <span className="ml-2 text-slate-600">{j.description}</span>
-                      <div className="text-[11px] text-slate-500 mt-0.5">
-                        {j.lines.map((l, idx) => (
-                          <span key={idx} className="mr-3">
-                            {l.debit > 0 ? `Dr ${l.accountCode} ${fmt(l.debit)}` : `Cr ${l.accountCode} ${fmt(l.credit)}`}
+                journals.map(j => {
+                  const isReversal = !!j.reversalOf;
+                  const isReversed = !!j.reversedBy;
+                  const canReverse = !isReversal && !isReversed;
+                  return (
+                    <div
+                      key={j.id}
+                      className={`px-5 py-3 flex flex-wrap items-center justify-between gap-3 ${
+                        isReversed ? 'bg-slate-50/60' : ''
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`font-bold ${isReversed ? 'text-slate-500 line-through' : 'text-slate-900'}`}>
+                            {j.reference}
                           </span>
-                        ))}
+                          {isReversal && (
+                            <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200">
+                              Reversal
+                            </span>
+                          )}
+                          {isReversed && (
+                            <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 border border-slate-300">
+                              Reversed
+                            </span>
+                          )}
+                          <span className={`text-slate-600 ${isReversed ? 'text-slate-400' : ''}`}>{j.description}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          {j.lines.map((l, idx) => (
+                            <span key={idx} className="mr-3">
+                              {Number(l.debit) > 0 ? `Dr ${l.accountCode} ${fmt(Number(l.debit))}` : `Cr ${l.accountCode} ${fmt(Number(l.credit))}`}
+                            </span>
+                          ))}
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => onReverseJournal(j.id)}
+                        disabled={!canReverse}
+                        title={
+                          isReversed
+                            ? 'Already reversed'
+                            : isReversal
+                              ? 'A reversal cannot itself be reversed — post a new journal'
+                              : 'Post an equal-and-opposite contra entry (the original is kept)'
+                        }
+                        className="text-rose-600 hover:text-rose-800 inline-flex items-center gap-1 font-semibold disabled:text-slate-400 disabled:cursor-not-allowed"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" /> Reverse
+                      </button>
                     </div>
-                    <button type="button" onClick={() => onReverseJournal(j.id)} className="text-rose-600 hover:text-rose-800 inline-flex items-center gap-1 font-semibold">
-                      <Trash2 className="w-3.5 h-3.5" /> Reverse
-                    </button>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

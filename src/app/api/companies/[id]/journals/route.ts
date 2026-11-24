@@ -67,28 +67,3 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
   return NextResponse.json(serialize({ journal: result.value }), { status: 201 });
 }
-
-export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const { id } = await context.params;
-  const { searchParams } = new URL(req.url);
-  const journalId = searchParams.get('journalId');
-  if (!journalId) return NextResponse.json({ error: 'Missing journalId' }, { status: 400 });
-
-  const result = await guard(async () => {
-    const company = await loadOwnedCompany(user.id, id);
-    if (!company) throw new RuleError(404, 'Company not found');
-
-    // deleteMany with companyId in the where clause means a journalId from
-    // another company silently matches nothing rather than being deleted.
-    const deleted = await prisma.journalEntry.deleteMany({
-      where: { id: journalId, companyId: company.id }
-    });
-    if (deleted.count === 0) throw new RuleError(404, 'Journal entry not found');
-    return { ok: true };
-  });
-
-  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
-  return NextResponse.json({ ok: true });
-}

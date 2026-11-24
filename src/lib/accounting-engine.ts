@@ -21,6 +21,10 @@ export interface JournalEntryRecord {
   description: string;
   sourceType: string;
   lines: JournalLineInput[];
+  /** Set when a contra entry has cancelled this one. Never deleted. */
+  reversedBy?: string | null;
+  /** Set on a contra entry, pointing at the original it cancels. */
+  reversalOf?: string | null;
 }
 
 export interface ComputedAccount extends AccountDef {
