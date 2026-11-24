@@ -2,9 +2,16 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// Switch provider to "postgresql" for Vercel Postgres / Neon / Supabase production deployments
+// Postgres in every environment, including local development.
+//
+// Vercel's filesystem is read-only and ephemeral: a SQLite file there is
+// discarded on each cold start, so every account and journal entry would
+// silently vanish. Neon gives us a real database with a free tier, and using
+// the same provider locally means the query planner, Decimal handling and
+// constraint behaviour are identical in dev and production — no "works on my
+// machine" drift between the two.
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

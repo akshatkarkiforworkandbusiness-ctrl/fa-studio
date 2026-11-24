@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "FA Studio — Full-stack Financial Accounting Cloud Simulation & ACCA FA (2025–2026) Study Platform",
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
